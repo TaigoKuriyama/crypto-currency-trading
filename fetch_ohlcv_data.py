@@ -18,27 +18,11 @@ argvs = sys.argv
 
 # Assuming this script will be executed at midnight (0:00)
 dt = datetime.utcnow() - timedelta(days=1)
-
-# timezone setting
 jst = pytz.timezone('Asia/Tokyo')
-
-# Market and interval
-prefix = 'BTC-PERP'
-market = prefix  # + dt.strftime('%m%d')
-print(f"market is {market}")
-# interval = float(sys.argv[1]) if len(sys.argv) >= 2 else 1 # unit: min
-interval = 1440  # unit: min
+market = str(sys.argv[1])
 # Make sure interval is either 0.4/1/5/15/60/240/1440
-if interval not in [0.4, 1, 5, 15, 60, 240, 1440]:
-    print(
-        f'Kline interval {interval} has to be either 0.4/1/5/15/60/240/1440.')
-    sys.exit(0)
-elif interval >= 1:
-    interval = int(interval)
-    print(f'Kline interval is {interval} min.')
-
-else:
-    print(f'Kline interval is {int(interval*60)} sec.')
+interval = float(sys.argv[2])
+print(f"market is {market}, interval is {interval} s")
 
 
 class FtxClient:
@@ -120,8 +104,11 @@ def get_historical_klines(market, interval, limit=2880, start_time=None, end_tim
 
     for _ in range(10):
         try:
-            temp_dict = client.get_klines(market_name=market, resolution=int(interval*60),
-                                          limit=limit, start_time=start_time, end_time=end_time)
+            temp_dict = client.get_klines(market_name=market,
+                                          resolution=int(interval*60),
+                                          limit=limit,
+                                          start_time=start_time,
+                                          end_time=end_time)
         except Exception as e:
             print(e)
             print("Failed to get historical kline. Retrying....")
@@ -142,8 +129,8 @@ def get_historical_klines(market, interval, limit=2880, start_time=None, end_tim
     df.columns = ['Close', 'High', 'Low', 'Open',
                   'Date UTC', 'TimeStamp', 'Volume']
     # change OHLCV data types from 'object' to 'float'
-    df[['Open', 'High', 'Low', 'Close', 'Volume']] = df[[
-        'Open', 'High', 'Low', 'Close', 'Volume']].astype('float64')
+    num_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+    df[num_cols] = df[num_cols].astype('float64')
     df['Date JST'] = [datetime.fromtimestamp(i/1000, jst).strftime(
         '%Y-%m-%d %H:%M:%S.%d')[:-3] for i in df['TimeStamp']]  # use JST to convert time
     # change df column order to OHLCV
@@ -163,10 +150,7 @@ def main():
     df_all = pd.DataFrame()
     while curr_date < last_date:
         sdate = curr_date
-        edate = curr_date + delta
         sts = ciso8601.parse_datetime(sdate.strftime(
-            '%Y-%m-%dT00:00:00')).replace(tzinfo=timezone.utc).timestamp()
-        ets = ciso8601.parse_datetime(edate.strftime(
             '%Y-%m-%dT00:00:00')).replace(tzinfo=timezone.utc).timestamp()
         market = curr_date.strftime('BTC-PERP')
 
